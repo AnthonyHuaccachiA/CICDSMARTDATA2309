@@ -154,8 +154,8 @@ jobs:
               ]
             },
             {
-              "task_key": "2.Ingest_Constructors",
-              "description": "Ejecuta notebook 2.Ingest_Constructors",
+              "task_key": "Ingest_Constructors",
+              "description": "Ejecuta notebook Ingest_Constructors",
               "notebook_task": {
                 "notebook_path": "/py/scripts/main/2.Ingest_Constructors",
                 "source": "WORKSPACE"
