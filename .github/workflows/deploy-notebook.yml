@@ -18,7 +18,7 @@ jobs:
         ORIGIN_HOST=${{ secrets.DATABRICKS_ORIGIN_HOST }}
         ORIGIN_TOKEN=${{ secrets.DATABRICKS_ORIGIN_TOKEN }}
         NOTEBOOK_BASE="/Workspace/Users/a.huaccachi.a@uni.pe/CICDSMARTDATA2309/proceso"
-        NOTEBOOKS=("1.Preparacion_Ambiente" "2.Ingest_circuits_data" "2.Ingest_Constructors")  # Agrega más según necesitesas
+        NOTEBOOKS=("1.Preparacion_Ambiente" "2.Ingest_circuits_data" "2.Ingest_Constructors" "2.Ingest_racing_data" "3.Transform" "4.Load" "5.Grants_Medallion")  # Agrega más según necesitesas
         mkdir -p notebooks_to_deploy
         for nb in "${NOTEBOOKS[@]}"; do
           echo "Exportando $nb en modo raw..."
@@ -32,7 +32,7 @@ jobs:
       run: |
         DEST_HOST=${{ secrets.DATABRICKS_DEST_HOST }}
         DEST_TOKEN=${{ secrets.DATABRICKS_DEST_TOKEN }}
-        DEST_BASE="/clase/scripts/main"
+        DEST_BASE="/proyecto/ventas/notebooks"
         for file in notebooks_to_deploy/*.py; do
           name=$(basename "$file" .py)
           dest_path="$DEST_BASE/$name"
@@ -127,45 +127,150 @@ jobs:
           "format": "MULTI_TASK",
           "tasks": [
             {
-              "task_key": "tk_prep_ambiente",
-              "description": "Ejecuta notebook prep_ambiente",
+              "task_key": "preparacion_ambiente",
+              "description": "Ejecuta notebook 1.Preparacion_Ambiente con parámetros",
               "notebook_task": {
-                "notebook_path": "/clase/scripts/main/1.Preparacion_Ambiente",
-                "source": "WORKSPACE"
+                "notebook_path": "/proyecto/ventas/notebooks/1.Preparacion_Ambiente",
+                "source": "WORKSPACE",
+                "base_parameters": {
+                  "storageName": "s3smartdata2109",
+                  "catalogwk": "catalog_prod"
+                }
               },
               "existing_cluster_id": "$CLUSTER_ID",
               "timeout_seconds": 3600,
               "max_retries": 2
             },
             {
-              "task_key": "tk_ingest_circuits",
-              "description": "Ejecuta notebook 2.Ingest_circuits_data",
+              "task_key": "ingest_circuits_data",
+              "description": "Ejecuta notebook ingest_circuits_data con parámetros",
               "notebook_task": {
-                "notebook_path": "/clase/scripts/main/2.Ingest_circuits_data",
-                "source": "WORKSPACE"
+                "notebook_path": "/proyecto/ventas/notebooks/2.Ingest_circuits_data",
+                "source": "WORKSPACE",
+                "base_parameters": {
+                  "container": "raw",
+                  "catalogo": "catalog_prod",
+                  "esquema": "bronze",
+                  "storageName": "s3smartdata2109"
+                }
               },
               "existing_cluster_id": "$CLUSTER_ID",
               "timeout_seconds": 3600,
               "max_retries": 2,
               "depends_on": [
                 {
-                  "task_key": "tk_prep_ambiente"
+                  "task_key": "preparacion_ambiente"
                 }
               ]
             },
             {
-              "task_key": "tk_ingest_constructors",
-              "description": "Ejecuta notebook 2.Ingest_Constructors",
+              "task_key": "ingest_constructors",
+              "description": "Ejecuta notebook ingest_constructors con parámetros",
               "notebook_task": {
-                "notebook_path": "/clase/scripts/main/2.Ingest_Constructors",
-                "source": "WORKSPACE"
+                "notebook_path": "/proyecto/ventas/notebooks/2.Ingest_Constructors",
+                "source": "WORKSPACE",
+                "base_parameters": {
+                  "container": "raw",
+                  "catalogo": "catalog_prod",
+                  "esquema": "bronze",
+                  "storageName": "s3smartdata2109"
+                }
               },
               "existing_cluster_id": "$CLUSTER_ID",
               "timeout_seconds": 3600,
               "max_retries": 2,
               "depends_on": [
                 {
-                  "task_key": "tk_ingest_circuits"
+                  "task_key": "preparacion_ambiente"
+                }
+              ]
+            },
+            {
+              "task_key": "ingest_racing",
+              "description": "Ejecuta notebook ingest_racing con parámetros",
+              "notebook_task": {
+                "notebook_path": "/proyecto/ventas/notebooks/2.Ingest_racing_data",
+                "source": "WORKSPACE",
+                "base_parameters": {
+                  "container": "raw",
+                  "catalogo": "catalog_prod",
+                  "esquema": "bronze",
+                  "storageName": "s3smartdata2109"
+                }
+              },
+              "existing_cluster_id": "$CLUSTER_ID",
+              "timeout_seconds": 3600,
+              "max_retries": 2,
+              "depends_on": [
+                {
+                  "task_key": "preparacion_ambiente"
+                }
+              ]
+            },
+            {
+              "task_key": "transform",
+              "description": "Ejecuta notebook transform con parámetros",
+              "notebook_task": {
+                "notebook_path": "/proyecto/ventas/notebooks/3.Transform",
+                "source": "WORKSPACE",
+                "base_parameters": {
+                  "catalogo": "catalog_prod",
+                  "esquema_source": "bronze",
+                  "esquema_sink": "silver"
+                }
+              },
+              "existing_cluster_id": "$CLUSTER_ID",
+              "timeout_seconds": 3600,
+              "max_retries": 2,
+              "depends_on": [
+                {
+                  "task_key": "ingest_circuits_data"
+                },
+                {
+                  "task_key": "ingest_constructors"
+                },
+                {
+                  "task_key": "ingest_racing"
+                }
+              ]
+            },
+            {
+              "task_key": "Load",
+              "description": "Ejecuta notebook Load con parámetros",
+              "notebook_task": {
+                "notebook_path": "/proyecto/ventas/notebooks/4.Load",
+                "source": "WORKSPACE",
+                "base_parameters": {
+                  "catalogo": "catalog_prod",
+                  "esquema_source": "silver",
+                  "esquema_sink": "golden"
+                }
+              },
+              "existing_cluster_id": "$CLUSTER_ID",
+              "timeout_seconds": 3600,
+              "max_retries": 2,
+              "depends_on": [
+                {
+                  "task_key": "transform"
+                }
+              ]
+            },
+            {
+              "task_key": "grants",
+              "description": "Ejecuta notebook Grants con parámetros",
+              "notebook_task": {
+                "notebook_path": "/proyecto/ventas/notebooks/5.Grants_Medallion",
+                "source": "WORKSPACE",
+                "base_parameters": {
+                  "catalogo": "catalog_prod"
+                }
+              },
+              "existing_cluster_id": "$CLUSTER_ID",
+              "timeout_seconds": 3600,
+              "max_retries": 2,
+              "depends_on": [
+                {
+                  "task_key": "Load"
                 }
               ]
             }
